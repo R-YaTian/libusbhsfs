@@ -11,7 +11,10 @@
 #include "usbhsfs_utils.h"
 #include "usbhsfs_manager.h"
 #include "usbhsfs_mount.h"
+
+#ifndef USBHSFS_SXOS_DISABLE
 #include "sxos/usbfs_dev.h"
+#endif
 
 #if defined(DEBUG) && defined(GPL_BUILD)
 #include "ntfs-3g/ntfs.h"
@@ -172,6 +175,7 @@ Result usbHsFsInitialize(u8 event_idx)
             /* This will be signaled each time a device is removed from the console. */
             g_usbInterfaceStateChangeEvent = usbHsGetInterfaceStateChangeEvent();
         } else {
+            #ifndef USBHSFS_SXOS_DISABLE
             /* Initialize usbfs service. */
             rc = usbFsInitialize();
             if (R_FAILED(rc))
@@ -187,6 +191,10 @@ Result usbHsFsInitialize(u8 event_idx)
             sprintf(g_sxOSDevice.manufacturer, "TX");
             sprintf(g_sxOSDevice.product_name, "USBHDD");
             sprintf(g_sxOSDevice.name, USBFS_MOUNT_NAME ":");
+            #else
+            (void)usbfs_init;
+            goto end;
+            #endif
         }
 
         /* Create user-mode drive manager thread exit event. */
@@ -210,7 +218,9 @@ end:
         /* Close usb:hs service if initialization failed. */
         if (R_FAILED(rc))
         {
+            #ifndef USBHSFS_SXOS_DISABLE
             if (usbfs_init) usbFsExit();
+            #endif
 
             if (usb_event_created) usbHsDestroyInterfaceAvailableEvent(&g_usbInterfaceAvailableEvent, event_idx);
 
@@ -254,8 +264,10 @@ void usbHsFsExit(void)
             free(g_usbInterfaces);
             g_usbInterfaces = NULL;
         } else {
+            #ifndef USBHSFS_SXOS_DISABLE
             /* Close usbfs service. */
             usbFsExit();
+            #endif
         }
 
         /* Clear user-provided callback. */
@@ -546,7 +558,13 @@ static Result usbHsFsCreateDriveManagerThread(void)
 
     /* Create thread. */
     /* Enable preemptive multithreading by using priority 0x3B. */
-    rc = threadCreate(&g_usbDriveManagerThread, g_isSXOS ? usbHsFsDriveManagerThreadFuncSXOS : usbHsFsDriveManagerThreadFuncAtmosphere, NULL, NULL, stack_size, 0x3B, -2);
+    rc = threadCreate(&g_usbDriveManagerThread,
+        #ifndef USBHSFS_SXOS_DISABLE
+        g_isSXOS ? usbHsFsDriveManagerThreadFuncSXOS : usbHsFsDriveManagerThreadFuncAtmosphere
+        #else
+        usbHsFsDriveManagerThreadFuncAtmosphere
+        #endif
+        , NULL, NULL, stack_size, 0x3B, -2);
     if (R_FAILED(rc))
     {
         USBHSFS_LOG_MSG("threadCreate failed! (0x%X).", rc);
@@ -598,6 +616,7 @@ end:
     return rc;
 }
 
+#ifndef USBHSFS_SXOS_DISABLE
 static void usbHsFsDriveManagerThreadFuncSXOS(void *arg)
 {
     NX_IGNORE_ARG(arg);
@@ -662,6 +681,7 @@ static void usbHsFsDriveManagerThreadFuncSXOS(void *arg)
     /* Exit thread. */
     threadExit();
 }
+#endif
 
 static void usbHsFsDriveManagerThreadFuncAtmosphere(void *arg)
 {
