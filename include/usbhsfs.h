@@ -49,21 +49,22 @@ typedef enum {
 /// Not all supported filesystems are compatible with all flags.
 /// It can be overriden via usbHsFsSetFileSystemMountFlags() (see below).
 typedef enum {
-    UsbHsFsMountFlags_None                        = 0,      ///< No special action is taken.
-    UsbHsFsMountFlags_ReadOnly                    = BIT(0), ///< Filesystem is mounted as read-only.
-    UsbHsFsMountFlags_ReplayJournal               = BIT(1), ///< NTFS and EXT only. Replays the log/journal to restore filesystem consistency (e.g. fix unsafe device ejections).
-    UsbHsFsMountFlags_IgnoreCaseSensitivity       = BIT(2), ///< NTFS only. Case sensitivity is ignored for all filesystem operations.
-    UsbHsFsMountFlags_UpdateAccessTimes           = BIT(3), ///< NTFS only. File/directory access times are updated after each successful R/W operation.
-    UsbHsFsMountFlags_ShowHiddenFiles             = BIT(4), ///< NTFS only. Hidden file entries are returned while enumerating directories.
-    UsbHsFsMountFlags_ShowSystemFiles             = BIT(5), ///< NTFS only. System file entries are returned while enumerating directories.
-    UsbHsFsMountFlags_IgnoreFileReadOnlyAttribute = BIT(6), ///< NTFS only. Allows writing to files even if they are marked as read-only.
-    UsbHsFsMountFlags_IgnoreHibernation           = BIT(7), ///< NTFS only. Filesystem is mounted even if it's in a hibernated state. The saved Windows session is completely lost.
+    UsbHsFsMountFlags_None                         = 0,         ///< No special action is taken.
+    UsbHsFsMountFlags_ReadOnly                     = BIT(0),    ///< Filesystem is mounted as read-only.
+    UsbHsFsMountFlags_ProbeUnsupportedPartitionIDs = BIT(1),    ///< Tries to mount MBR/EBR/GPT volumes with unsupported (e.g. hidden and/or special) partition IDs. Use with caution.
+    UsbHsFsMountFlags_ReplayJournal                = BIT(2),    ///< NTFS and EXT only. Replays the log/journal to restore filesystem consistency (e.g. fix unsafe device ejections).
+    UsbHsFsMountFlags_IgnoreCaseSensitivity        = BIT(3),    ///< NTFS only. Case sensitivity is ignored for all filesystem operations.
+    UsbHsFsMountFlags_UpdateAccessTimes            = BIT(4),    ///< NTFS only. File/directory access times are updated after each successful R/W operation.
+    UsbHsFsMountFlags_ShowHiddenFiles              = BIT(5),    ///< NTFS only. Hidden file entries are returned while enumerating directories.
+    UsbHsFsMountFlags_ShowSystemFiles              = BIT(6),    ///< NTFS only. System file entries are returned while enumerating directories.
+    UsbHsFsMountFlags_IgnoreFileReadOnlyAttribute  = BIT(7),    ///< NTFS only. Allows writing to files even if they are marked as read-only.
+    UsbHsFsMountFlags_IgnoreHibernation            = BIT(8),    ///< NTFS only. Filesystem is mounted even if it's in a hibernated state. The saved Windows session is completely lost.
 
     ///< Pre-generated bitmasks provided for convenience.
-    UsbHsFsMountFlags_Default                     = (UsbHsFsMountFlags_ShowHiddenFiles | UsbHsFsMountFlags_UpdateAccessTimes | UsbHsFsMountFlags_ReplayJournal),
-    UsbHsFsMountFlags_SuperUser                   = (UsbHsFsMountFlags_IgnoreFileReadOnlyAttribute | UsbHsFsMountFlags_ShowSystemFiles | UsbHsFsMountFlags_Default),
-    UsbHsFsMountFlags_Force                       = (UsbHsFsMountFlags_IgnoreHibernation | UsbHsFsMountFlags_Default),
-    UsbHsFsMountFlags_All                         = (UsbHsFsMountFlags_IgnoreHibernation | (UsbHsFsMountFlags_IgnoreHibernation - 1))
+    UsbHsFsMountFlags_Default                      = (UsbHsFsMountFlags_ShowHiddenFiles | UsbHsFsMountFlags_UpdateAccessTimes | UsbHsFsMountFlags_ReplayJournal),
+    UsbHsFsMountFlags_SuperUser                    = (UsbHsFsMountFlags_IgnoreFileReadOnlyAttribute | UsbHsFsMountFlags_ShowSystemFiles | UsbHsFsMountFlags_Default),
+    UsbHsFsMountFlags_Force                        = (UsbHsFsMountFlags_IgnoreHibernation | UsbHsFsMountFlags_Default),
+    UsbHsFsMountFlags_All                          = (UsbHsFsMountFlags_IgnoreHibernation | (UsbHsFsMountFlags_IgnoreHibernation - 1))
 } UsbHsFsMountFlags;
 
 /// DOS/NT file attributes.

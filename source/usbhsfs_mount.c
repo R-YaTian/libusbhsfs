@@ -566,7 +566,23 @@ static void usbHsFsMountParseMasterBootRecordPartitionEntry(UsbHsFsDriveLogicalU
 
             break;
         default:
-            USBHSFS_LOG_MSG("Found unsupported partition entry with type 0x%02X (interface %d, LUN %u). Skipping.", partition->type, lun_ctx->usb_if_id, lun_ctx->lun);
+            if (g_fileSystemMountFlags & UsbHsFsMountFlags_ProbeUnsupportedPartitionIDs)
+            {
+                USBHSFS_LOG_MSG("Found partition entry with unknown type 0x%02X at LBA 0x%lX. Probing volume (interface %d, LUN %u).", partition->type, part_lba, lun_ctx->usb_if_id, lun_ctx->lun);
+
+                /* Inspect potential Microsoft VBR sitting behind a non-standard MBR partition type. */
+                fs_type = usbHsFsMountInspectVolumeBootRecord(lun_ctx, block, part_lba);
+#ifdef GPL_BUILD
+                if (fs_type == UsbHsFsDriveLogicalUnitFileSystemType_Invalid)
+                {
+                    /* Fallback to an EXT volume. Proceed no further if this fails. */
+                    fs_type = usbHsFsMountInspectExtSuperBlock(lun_ctx, block, part_lba);
+                }
+#endif
+            } else {
+                USBHSFS_LOG_MSG("Found unsupported partition entry with type 0x%02X (interface %d, LUN %u). Skipping.", partition->type, lun_ctx->usb_if_id, lun_ctx->lun);
+            }
+
             break;
     }
 
@@ -714,6 +730,13 @@ static void usbHsFsMountParseGuidPartitionTableEntry(UsbHsFsDriveLogicalUnitCont
     u64 entry_size = ((gpt_entry->lba_end + 1) - gpt_entry->lba_start);
     UsbHsFsDriveLogicalUnitFileSystemType fs_type = UsbHsFsDriveLogicalUnitFileSystemType_Invalid;
 
+    /* Discard entries whose LBA span falls outside this logical unit before any branch below issues a read. */
+    if (entry_lba >= lun_ctx->block_count || gpt_entry->lba_end >= lun_ctx->block_count || gpt_entry->lba_end < entry_lba)
+    {
+        USBHSFS_LOG_MSG("Discarding GPT partition entry with out-of-range LBA span (0x%lX - 0x%lX) (interface %d, LUN %u).", entry_lba, gpt_entry->lba_end, lun_ctx->usb_if_id, lun_ctx->lun);
+        return;
+    }
+
     if (!memcmp(gpt_entry->type_guid, g_microsoftBasicDataPartitionGuid, sizeof(g_microsoftBasicDataPartitionGuid)))
     {
         /* We're dealing with a Microsoft Basic Data Partition entry. */
@@ -739,6 +762,22 @@ static void usbHsFsMountParseGuidPartitionTableEntry(UsbHsFsDriveLogicalUnitCont
         /* Check if this LBA points to a valid EXT superblock. Register the EXT volume if so. */
         fs_type = usbHsFsMountInspectExtSuperBlock(lun_ctx, block, entry_lba);
 #endif
+    } else
+    if (g_fileSystemMountFlags & UsbHsFsMountFlags_ProbeUnsupportedPartitionIDs)
+    {
+        USBHSFS_LOG_DATA(gpt_entry->type_guid, sizeof(gpt_entry->type_guid), "Found GPT partition with unknown GUID at LBA 0x%lX. Probing volume (interface %d, LUN %u):", entry_lba, lun_ctx->usb_if_id, lun_ctx->lun);
+
+        /* Inspect potential Microsoft VBR sitting behind a non-standard GUID. */
+        fs_type = usbHsFsMountInspectVolumeBootRecord(lun_ctx, block, entry_lba);
+#ifdef GPL_BUILD
+        if (fs_type == UsbHsFsDriveLogicalUnitFileSystemType_Invalid)
+        {
+            /* Fallback to an EXT volume. Proceed no further if this fails. */
+            fs_type = usbHsFsMountInspectExtSuperBlock(lun_ctx, block, entry_lba);
+        }
+#endif
+    } else {
+        USBHSFS_LOG_DATA(gpt_entry->type_guid, sizeof(gpt_entry->type_guid), "Skipping GPT partition with unknown GUID at LBA 0x%lX (interface %d, LUN %u):", entry_lba, lun_ctx->usb_if_id, lun_ctx->lun);
     }
 
     /* Register volume. */
